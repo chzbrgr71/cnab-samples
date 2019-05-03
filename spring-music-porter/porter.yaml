@@ -1,13 +1,14 @@
 name: spring-music-bundle
 version: 0.1.0
 description: "Spring Music Demo app with Azure Cosmos DB"
-invocationImage: chzbrgr71/spring-music-installer:v2.75
+invocationImage: chzbrgr71/spring-music-installer:v314
 dockerfile: cnab/app/Dockerfile.base
 
 mixins:
   - exec
   - helm
   - azure
+  - kubernetes
 
 install:
   - azure:
@@ -19,6 +20,7 @@ install:
         clusterName: "{{ bundle.parameters.aks-cluster-name }}"
         servicePrincipalClientId: "{{ bundle.credentials.CLIENT_ID}}"
         servicePrincipalClientSecret: "{{ bundle.credentials.CLIENT_SECRET}}"
+        location: "{{ bundle.parameters.azure-location }}"
 
   - exec: 
       description: "Azure CLI login"
@@ -43,6 +45,46 @@ install:
         - "{{ bundle.parameters.aks-resource-group }}"
         - "--name"
         - "{{ bundle.parameters.aks-cluster-name }}"
+
+  - kubernetes:
+      description: "Add RBAC roles for Tiller"
+      manifests:
+        - /cnab/app/manifests
+      wait: true  
+
+  - exec: 
+      description: "Initialize helm on cluster"
+      command: "helm"
+      arguments: 
+        - "init" 
+        - "--service-account"
+        - "tiller" 
+        - "--upgrade"
+
+  - azure:
+      description: "Create Azure Cosmos DB"
+      type: cosmosdb
+      name: spring-music-cosmos
+      resourceGroup: "{{ bundle.parameters.app-resource-group }}"
+      parameters:
+        name: "{{ bundle.parameters.cosmosdb-service-name }}"
+        kind: "MongoDB"
+        location: "{{ bundle.parameters.azure-location }}"
+      outputs:
+        - name: "COSMOSDB_HOST"
+          key: "HOST"
+        - name: "COSMOSDB_KEY"
+          key: "primary_key"       
+        - name: "COSMOSDB_CONNECTION_STRING"
+          key: "connection_string"
+          
+  - helm:
+      description: "Helm Install Spring Music Demo App"
+      name: spring-music-helm
+      chart: /cnab/app/charts/spring-music
+      replace: true
+      set:
+        deploy.cosmosConnectString: $COSMOSDB_CONNECTION_STRING
 
 uninstall:
   - exec:
@@ -75,12 +117,12 @@ parameters:
     env: AKS_RESOURCE_GROUP
 - name: aks-cluster-name
   type: string
-  default: briar-aks-spring-300
+  default: my-aks-spring
   destination:
     env: AKS_CLUSTER_NAME
 - name: cosmosdb-service-name
   type: string
-  default: briarspringmusic300
+  default: myspringmusic
   destination:
     env: COSMOSDB_SERVICE_NAME
 - name: azure-location

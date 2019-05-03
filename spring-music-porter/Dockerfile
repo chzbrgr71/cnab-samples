@@ -11,6 +11,12 @@ RUN apt-get update && \
  rm helm.tgz
 RUN helm init --client-only
 
+RUN apt-get update && \
+apt-get install -y apt-transport-https curl && \
+curl -o kubectl https://storage.googleapis.com/kubernetes-release/release/v1.13.0/bin/linux/amd64/kubectl && \
+mv kubectl /usr/local/bin && \
+chmod a+x /usr/local/bin/kubectl
+
 COPY cnab/ /cnab/
 COPY porter.yaml /cnab/app/porter.yaml
 CMD ["/cnab/app/run"]

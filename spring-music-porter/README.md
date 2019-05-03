@@ -2,10 +2,11 @@
 
 This project is a sample CNAB bundle that is created and managed by Porter. https://porter.sh 
 
-This bundle uses two mixins to access your Azure subscription. These values need to be updated in the porter.yaml.
+This bundle uses 3 mixins to access your Azure subscription and deploy the app. These values need to be updated in the porter.yaml.
 
 * The `exec` mixin uses an Azure Service Principal to access via the CLI.
 * The `azure` mixin uses ARM and requires the subscription and tenant info. 
+* The `helm` mixin deploys the chart into your AKS cluster.
 
 ### Prerequisites
 
@@ -26,10 +27,25 @@ This bundle uses two mixins to access your Azure subscription. These values need
 ### Build / Install this bundle
 
 * Setup duffle credentials
-* Porter
+    For now, we need to use duffle for this [need to fix this]
 
-```bash
-porter build
+    ```bash
+    duffle credential generate azure -f bundle.json
+    ```
 
-porter install -c test1 --insecure
-```
+* Update params for your deployment
+    * change the `invocationImage` Docker repo to match your Docker Hub account (line 4)
+    * Cosmos and AKS names must be unique. You can either edit the `porter.yaml` file default values (starting on line 90) or you can supply the with the porter CLI as shown below.
+
+* Build the innvocation image
+
+    ```bash
+    porter build
+    ```
+
+* Install the bundle
+
+    ```bash
+    export INSTALL_ID=314
+    porter install -c test1 --insecure --param app-resource-group=spring-music-demo-$INSTALL_ID --param aks-resource-group=spring-music-demo-$INSTALL_ID --param aks-cluster-name=briar-aks-spring-$INSTALL_ID --param cosmosdb-service-name=briarspringmusic$INSTALL_ID --param azure-location=eastus
+    ```
